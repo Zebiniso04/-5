@@ -1,0 +1,93 @@
+'use client'
+
+import { useState, useEffect, useCallback } from 'react'
+
+const notes = ['A', 'B', 'C', 'D', 'E', 'F', 'G']
+const colors = ['#FF0000', '#FF7F00', '#FFFF00', '#00FF00', '#0000FF', '#4B0082', '#9400D3']
+const frequencies = [440, 493.88, 523.25, 587.33, 659.25, 698.46, 783.99]
+
+export default function Xylophone() {
+  const [activeNote, setActiveNote] = useState<string | null>(null)
+  const [audioContext, setAudioContext] = useState<AudioContext | null>(null)
+
+  const playNote = useCallback((note: string, index: number) => {
+    setActiveNote(note)
+    setTimeout(() => setActiveNote(null), 300)
+
+    if (audioContext) {
+      const oscillator = audioContext.createOscillator()
+      oscillator.type = 'sine'
+      oscillator.frequency.setValueAtTime(frequencies[index], audioContext.currentTime)
+
+      const gainNode = audioContext.createGain()
+      gainNode.gain.setValueAtTime(0.7, audioContext.currentTime)
+      gainNode.gain.exponentialRampToValueAtTime(0.00001, audioContext.currentTime + 0.5)
+
+      oscillator.connect(gainNode)
+      gainNode.connect(audioContext.destination)
+
+      oscillator.start()
+      oscillator.stop(audioContext.currentTime + 0.5)
+    }
+  }, [audioContext])
+
+  useEffect(() => {
+    const initAudio = () => {
+      if (!audioContext) {
+        const ctx = new (window.AudioContext || (window as any).webkitAudioContext)()
+        setAudioContext(ctx)
+      }
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const key = event.key
+      if (/^[1-7]$/.test(key)) {
+        initAudio()
+        const index = parseInt(key) - 1
+        playNote(notes[index], index)
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    document.addEventListener('touchstart', initAudio, { once: true })
+    document.addEventListener('mousedown', initAudio, { once: true })
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+      document.removeEventListener('touchstart', initAudio)
+      document.removeEventListener('mousedown', initAudio)
+    }
+  }, [audioContext, playNote])
+
+  const handleNoteClick = (note: string, index: number) => {
+    if (!audioContext) {
+      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)()
+      setAudioContext(ctx)
+    }
+    playNote(note, index)
+  }
+
+  return (
+    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 p-4">
+      <h1 className="text-3xl font-bold mb-8 text-black">Ксилофон</h1>
+      <div className="flex justify-center items-end">
+        {notes.map((note, index) => (
+          <div
+            key={note}
+            className={`w-12 sm:w-16 h-32 sm:h-48 cursor-pointer rounded-t-2xl flex items-end justify-center transition-all duration-300 ease-in-out mx-1 ${
+              activeNote === note ? 'transform scale-105' : ''
+            }`}
+            style={{ 
+              backgroundColor: colors[index],
+              height: `${12 + index * 2}rem`
+            }}
+            onClick={() => handleNoteClick(note, index)}
+            onTouchStart={() => handleNoteClick(note, index)}
+          >
+            <span className="text-white font-bold text-xl mb-4">{note}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
